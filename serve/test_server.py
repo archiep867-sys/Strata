@@ -491,6 +491,27 @@ class SamplingKeys(unittest.TestCase):
         self.assertFalse([k for k in self.keys(temperature=0.7) if k.startswith("penalty")])
 
 
+class VisionEnv(unittest.TestCase):
+    def test_uses_own_gpu(self):
+        from serve.server import vision_env
+        env = {"CUDA_VISIBLE_DEVICES": "0,1"}
+        out = vision_env({"vision": {"cuda_device": 2}}, env)
+        self.assertEqual(out["CUDA_VISIBLE_DEVICES"], "2")
+        self.assertEqual(out["CUDA_DEVICE_ORDER"], "PCI_BUS_ID")
+        self.assertEqual(env["CUDA_VISIBLE_DEVICES"], "0,1")  # engine env untouched
+
+    def test_zero_is_honoured(self):
+        from serve.server import vision_env
+        out = vision_env({"vision": {"cuda_device": 0}}, {"CUDA_VISIBLE_DEVICES": "1,2"})
+        self.assertEqual(out["CUDA_VISIBLE_DEVICES"], "0")
+
+    def test_unset_returns_env_unchanged(self):
+        from serve.server import vision_env
+        env = {"CUDA_VISIBLE_DEVICES": "0,1"}
+        self.assertIs(vision_env({"vision": {}}, env), env)
+        self.assertIs(vision_env({}, env), env)
+
+
 class GpuChoice(unittest.TestCase):
     """Issue #51: the config's \"gpu\" reaches the engine as CUDA_VISIBLE_DEVICES, numbered like nvidia-smi."""
 

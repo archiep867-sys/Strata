@@ -647,6 +647,18 @@ def child_env(cfg: dict) -> dict:
     return env
 
 
+def vision_env(cfg: dict, env: dict) -> dict:
+    """Give the vision encoder its own CUDA device when configured."""
+    dev = (cfg.get("vision") or {}).get("cuda_device")
+    if dev is None:
+        return env
+
+    vision_env_vars = dict(env)
+    vision_env_vars["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    vision_env_vars["CUDA_VISIBLE_DEVICES"] = str(dev)
+    return vision_env_vars
+
+
 class ByteTokenizer:
     """Tiny stand-in tokenizer for tests without the pack: one id per UTF-8 byte, specials as ids >= 256."""
     SPECIALS = ["<|im_start|>", "<|im_end|>", "<|endoftext|>", "<|vision_start|>", "<|image_pad|>", "<|vision_end|>"]
@@ -2412,7 +2424,7 @@ def main() -> int:
             vcfg = {k: (os.path.abspath(os.path.join(cfg.get("cwd") or ".", v))
                         if k in ("exe", "mmproj", "model") and isinstance(v, str) and not os.path.isabs(v) else v)
                     for k, v in cfg["vision"].items()}
-            vision = Vision(vcfg, log=open(cfg["log"], "a", encoding="utf-8") if cfg.get("log") else None, env=env)
+            vision = Vision(vcfg, log=open(cfg["log"], "a", encoding="utf-8") if cfg.get("log") else None, env=vision_env(cfg, env))
         print("model unloaded; the first request loads it ..." if lazy else
               "loading the model (the first start takes a minute or two) ...", flush=True)
         if len(gpu_list(cfg)) > 1:
